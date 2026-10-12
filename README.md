@@ -53,12 +53,13 @@ Em vez de replicar codigo, chaves de API e regras de negocio em multiplos reposi
   - **Modo Gemini RAG**: Quando configurada a `GEMINI_API_KEY`, a LLM sintetiza a resposta com base na consulta factual real.
   - **Modo Deterministico (Fallback)**: Caso a LLM esteja sem chave ou atinja rate limits, o motor RAG analitico local resolve a consulta instantaneamente sem falhar a requisicao.
 - **Suporte Dual-Database**: DuckDB nativo em producao/cloud e fallback automatico para SQLite em ambientes restritos.
+- **Streaming em Tempo Real (SSE)**: Suporte nativo a Server-Sent Events emitindo metadados analiticos e tokens de texto em fluxo continuo.
 
 ---
 
 ## Endpoints da API
 
-### 1. Chat Analitico Multi-Tenant
+### 1. Chat Analitico Multi-Tenant (Sincrono)
 `POST /api/v1/chat`
 
 **Payload de Requisicao:**
@@ -88,11 +89,21 @@ Em vez de replicar codigo, chaves de API e regras de negocio em multiplos reposi
 }
 ```
 
-### 2. Catalogo de Projetos
+### 2. Chat Streaming em Tempo Real (SSE)
+`POST /api/v1/chat/stream`
+
+Permite o efeito maquina de escrever em dashboards e interfaces web via Server-Sent Events (`text/event-stream`).
+
+**Eventos Emitidos:**
+- `metadata`: Objeto inicial contendo a query SQL executada e os registros extraidos do banco analitico.
+- `chunk`: Fragmentos de texto (`delta`) emitidos a cada token gerado.
+- `done`: Evento final com telemetria de execucao (`execution_time_ms`) e modo ativo.
+
+### 3. Catalogo de Projetos
 `GET /api/v1/projects`  
 Retorna a lista de projetos registrados com perguntas sugeridas para preencher a interface de chat.
 
-### 3. Diagnostico e Telemetria
+### 4. Diagnostico e Telemetria
 `GET /api/v1/health`  
 Retorna o status do servico, modelo de IA ativo e lista de projetos online.
 
