@@ -1,7 +1,9 @@
+# -*- coding: utf-8 -*-
 """
 Testes automatizados da RN Intelligence API.
-Valida??o de endpoints, isolamento multi-tenant e seguran?a SQL.
+Validação de endpoints síncronos e streaming SSE, isolamento multi-tenant e segurança SQL.
 """
+import json
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
@@ -43,7 +45,7 @@ def test_get_project_detail():
 def test_chat_sales_bi():
     payload = {
         "project_id": "sales-bi",
-        "message": "Qual ? o faturamento total consolidado?"
+        "message": "Qual é o faturamento total consolidado?"
     }
     response = client.post("/api/v1/chat", json=payload)
     assert response.status_code == 200
@@ -56,7 +58,7 @@ def test_chat_sales_bi():
 def test_chat_portfolio():
     payload = {
         "project_id": "portfolio",
-        "message": "Quais s?o os principais projetos desenvolvidos por Renan?"
+        "message": "Quais são os principais projetos desenvolvidos por Renan?"
     }
     response = client.post("/api/v1/chat", json=payload)
     assert response.status_code == 200
@@ -67,9 +69,44 @@ def test_chat_portfolio():
 def test_chat_invalid_project():
     payload = {
         "project_id": "projeto-inexistente-xyz",
-        "message": "Ol? mundo"
+        "message": "Olá mundo"
     }
     response = client.post("/api/v1/chat", json=payload)
+    assert response.status_code == 404
+
+def test_chat_stream_sales_bi():
+    payload = {
+        "project_id": "sales-bi",
+        "message": "Qual é a margem de contribuição?"
+    }
+    response = client.post("/api/v1/chat/stream", json=payload)
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+    
+    events = []
+    for line in response.iter_lines():
+        if line.startswith("data: "):
+            raw = line[6:]
+            event = json.loads(raw)
+            events.append(event)
+            
+    assert len(events) >= 3
+    event_types = [e["type"] for e in events]
+    assert "metadata" in event_types
+    assert "chunk" in event_types
+    assert "done" in event_types
+    
+    # Valida metadados
+    meta = next(e for e in events if e["type"] == "metadata")
+    assert meta["project_id"] == "sales-bi"
+    assert "SELECT" in meta["sql_query"].upper()
+
+def test_chat_stream_invalid_project():
+    payload = {
+        "project_id": "projeto-desconhecido",
+        "message": "Teste stream"
+    }
+    response = client.post("/api/v1/chat/stream", json=payload)
     assert response.status_code == 404
 
 def test_sql_security_valid():
